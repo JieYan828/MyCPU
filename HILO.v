@@ -9,8 +9,8 @@ module HILO(
     input wire[31:0] lo_i,
     
     //¶Á¶Ë¿Ú
-    output reg[31:0] hi_o=32'd2,
-    output reg[31:0] lo_o=32'd2
+    output reg[31:0] hi_o,
+    output reg[31:0] lo_o
     );
         always @ (posedge clk) begin
             if (rst) begin

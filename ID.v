@@ -17,7 +17,10 @@ module ID(
 
     output wire [`BR_WD-1:0] br_bus,
     
-    output wire [2:0]lo_hi_to_ex_bus,
+    output wire [7:0]lo_hi_to_ex_bus,
+    
+    output wire [34:0] lo_hi_to_wb_bus,
+    
     //解决数据相关,来自EX段的数据！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
     input wire [31:0] EX_ID ,//上一条指令的结果
     input wire EX_wb_en, //上一条指令的写回使能为高
@@ -120,8 +123,8 @@ module ID(
     wire [31:0] rdata1, rdata2;
     
     //控制LO和HI的读写
-    wire sel_lo_hi; //选择是lo还是hi寄存器
-    wire lo_hi_we; //写使能
+    wire [1:0] sel_lo_hi; //选择是lo还是hi寄存器,第2位为1表示两个寄存器都用，第1位为1表示用lo寄存器，第1位为0表示用hi寄存器
+    wire [1:0] lo_hi_we; //写使能
     wire lo_hi_re; //读使能
     
     
@@ -150,18 +153,20 @@ module ID(
     assign base = inst[25:21];
     assign offset = inst[15:0];
     assign sel = inst[2:0];
-    assign sel_lo_hi = inst[1];
+    assign sel_lo_hi[0] = inst[1];
     
 
     wire inst_ori, inst_lui, inst_addiu, inst_beq, inst_subu, inst_jr, inst_jal, inst_addu,
          inst_sll,inst_or,inst_lw,inst_sw,inst_xor,inst_sltu,inst_bne,inst_slt,inst_slti,
          inst_sltiu,inst_j,inst_add, inst_addi, inst_sub,inst_and,inst_andi,inst_nor,inst_xori,
          inst_sllv,inst_sra,inst_srav,inst_srl,inst_srlv,inst_bgez,inst_b,inst_bgtz,inst_blez,
-         inst_bltz,inst_bltzal,inst_bgezal,inst_jalr,inst_mflo,inst_mfhi;
+         inst_bltz,inst_bltzal,inst_bgezal,inst_jalr,inst_mflo,inst_mfhi,inst_mthi,inst_mtlo,
+         inst_div,inst_divu,inst_mult,inst_multu;
 
     wire op_add, op_sub, op_slt, op_sltu;
     wire op_and, op_nor, op_or, op_xor;
     wire op_sll, op_srl, op_sra, op_lui;
+    wire op_mult, op_multu, op_div,op_divu;
 
     decoder_6_64 u0_decoder_6_64(
     	.in  (opcode  ),
@@ -224,6 +229,12 @@ module ID(
     assign inst_jalr    = op_d[6'b00_0000] & func_d[6'b00_1001];
     assign inst_mflo    = op_d[6'b00_0000] & func_d[6'b01_0010];
     assign inst_mfhi    = op_d[6'b00_0000] & func_d[6'b01_0000];
+    assign inst_mtlo    = op_d[6'b00_0000] & func_d[6'b01_0011];
+    assign inst_mthi    = op_d[6'b00_0000] & func_d[6'b01_0001];
+    assign inst_div     = op_d[6'b00_0000] & func_d[6'b01_1010];
+    assign inst_divu    = op_d[6'b00_0000] & func_d[6'b01_1011];
+    assign inst_mult    = op_d[6'b00_0000] & func_d[6'b01_1000];
+    assign inst_multu   = op_d[6'b00_0000] & func_d[6'b01_1001];
     
 
 
@@ -232,7 +243,7 @@ module ID(
                              | inst_or |inst_lw | inst_sw | inst_xor | inst_sltu
                              | inst_slt | inst_slti | inst_sltiu | inst_add | inst_addi 
                              | inst_sub | inst_and | inst_andi | inst_nor | inst_xori
-                             | inst_sllv | inst_srav | inst_srlv; //ori和addiu的第一个操作数是寄存器
+                             | inst_sllv | inst_srav | inst_srlv | inst_div; //ori和addiu的第一个操作数是寄存器
 
     // pc to reg1
     assign sel_alu_src1[1] = inst_jal | inst_bltzal | inst_bgezal | inst_jalr; //第一个操作数是pc值
@@ -245,7 +256,7 @@ module ID(
     assign sel_alu_src2[0] = inst_subu | inst_addu | inst_sll | inst_or | inst_xor | 
                              inst_sltu | inst_slt | inst_add | inst_sub | inst_and | 
                              inst_nor | inst_sllv | inst_sra | inst_srav | inst_srl |
-                             inst_srlv; 
+                             inst_srlv | inst_div; 
     
     // imm_sign_extend to reg2
     assign sel_alu_src2[1] = inst_lui | inst_addiu | inst_lw | inst_sw | inst_slti | 
@@ -272,6 +283,11 @@ module ID(
     assign op_srl = inst_srl | inst_srlv;
     assign op_sra = inst_sra | inst_srav;
     assign op_lui = inst_lui;
+    assign op_mult = inst_mult;
+    assign op_multu = inst_multu; 
+    assign op_div = inst_div;
+    assign op_divu = inst_divu;
+    
 
     assign alu_op = {op_add, op_sub, op_slt, op_sltu,
                      op_and, op_nor, op_or, op_xor,
@@ -295,7 +311,9 @@ module ID(
                    | inst_bgezal | inst_jalr | inst_mflo | inst_mfhi; //这几条指令需要写回寄存器
     
     //lo_hi寄存器写使能
-    assign lo_hi_we = 1'b0;
+    assign lo_hi_we = inst_mtlo | inst_mthi | inst_mult | inst_multu | inst_div |inst_divu;
+    
+    assign sel_lo_hi[1] = inst_mult | inst_multu | inst_div | inst_divu;
     
     //ho_li寄存器读使能
     assign lo_hi_re = inst_mflo | inst_mfhi;
@@ -340,29 +358,7 @@ module ID(
 //                        clk_count == 32'h00002e12||clk_count == 32'h00002e18) ? 1'b1 : 1'b0;
     assign stallreq = (sel_rf_res) ? 1'b1 : 1'b0;
     assign stall_clk = (sel_rf_res) ? clk_count : 32'hffffffff;
-    //wire [31:0] id_pc_new;
-    //assign id_pc_new = (clk_count == 32'h00000580) ? 32'h9fc00d60 : id_pc;
-    //assign id_pc = id_pc_tmp;
     
-    //如果暂停，则传入EX段的inst为全0！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-//    wire [158:0] sel_id_to_ex_bus;
-//    assign sel_id_to_ex_bus = (rs == EX_wb_r  && EX_wb_en && EX_sel_rf_res==1'b1 ) ? 158'b0 : 
-//        {
-//            id_pc,          // 158:127
-//            inst,           // 126:95
-//            alu_op,         // 94:83
-//            sel_alu_src1,   // 82:80
-//            sel_alu_src2,   // 79:76
-//            data_ram_en,    // 75
-//            data_ram_wen,   // 74:71
-//            rf_we,          // 70
-//            rf_waddr,       // 69:65
-//            sel_rf_res,     // 64
-//            sel_rdata1,         // 63:32
-//            sel_rdata2          // 31:0
-//        };
-        
-//    assign id_to_ex_bus=sel_id_to_ex_bus;
     assign id_to_ex_bus = {
         id_pc,       // 158:127
         inst,           // 126:95
@@ -381,9 +377,18 @@ module ID(
     assign lo_hi_to_ex_bus = {
     sel_lo_hi,
     lo_hi_we,
-    lo_hi_re
+    lo_hi_re,
+    inst_mult,
+    inst_multu,
+    inst_div,
+    inst_divu
     };
-
+    
+    assign lo_hi_to_wb_bus ={
+    sel_lo_hi,
+    lo_hi_we,
+    sel_rdata1
+    };
 
     wire br_e;
     wire [31:0] br_addr;

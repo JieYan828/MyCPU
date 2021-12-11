@@ -31,9 +31,15 @@ module mycpu_core(
     wire [`StallBus-1:0] stall;
     
     //HILO寄存器
-    wire [2:0] lo_hi_to_ex_bus;
+    wire stallreq_for_ex;
+    wire [7:0] lo_hi_to_ex_bus;
     wire [31:0] hi_o;
     wire [31:0] lo_o;
+    wire [34:0] lo_hi_to_wb_bus;
+    wire lo_hi_we;
+    wire [31:0] hi_i;
+    wire [31:0] lo_i;
+    wire [66:0] lo_hi_ex_to_wb_bus;
     
     //解决数据相关！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
     wire [31:0] EX_ID ;//上一条指令的结果
@@ -90,7 +96,8 @@ module mycpu_core(
         .WB_wb_en        (WB_wb_en),
         .WB_wb_r         (WB_wb_r),
         .stallreq         (stallreq_for_load),
-        .lo_hi_to_ex_bus (lo_hi_to_ex_bus)
+        .lo_hi_to_ex_bus (lo_hi_to_ex_bus),
+        .lo_hi_to_wb_bus (lo_hi_to_wb_bus)
     );
 
     EX u_EX(
@@ -109,11 +116,9 @@ module mycpu_core(
         .EX_sel_rf_res   (EX_sel_rf_res),
         .lo_hi_to_ex_bus (lo_hi_to_ex_bus),
         .hi_o              (hi_o),
-        .lo_o              (lo_o)
-        //.MEM_sel_rf_res   (MEM_sel_rf_res),
-        //.stallreq         (stallreq_for_load),
-        //.MEM_wb_r         (MEM_wb_r),
-        //.MEM_wb_en        (MEM_wb_en)
+        .lo_o              (lo_o),
+        .lo_hi_ex_to_wb_bus (lo_hi_ex_to_wb_bus),
+        .stallreq_for_ex   (stallreq_for_ex)
     );
 
     MEM u_MEM(
@@ -141,20 +146,29 @@ module mycpu_core(
         .debug_wb_rf_wdata (debug_wb_rf_wdata ),
         .WB_ID           (WB_ID),
         .WB_wb_en        (WB_wb_en),
-        .WB_wb_r         (WB_wb_r)
+        .WB_wb_r         (WB_wb_r),
+        .lo_hi_to_wb_bus (lo_hi_to_wb_bus),
+        .lo_hi_we_o       (lo_hi_we),
+        .lo_i             (lo_i),
+        .hi_i             (hi_i),
+        .lo_hi_ex_to_wb_bus (lo_hi_ex_to_wb_bus)
     );
 
     CTRL u_CTRL(
     	.rst   (rst   ),
         .stall (stall ),
-        .stallreq_for_load  (stallreq_for_load)
+        .stallreq_for_load  (stallreq_for_load),
+        .stallreq_for_ex   (stallreq_for_ex)
     );
     
     HILO u_HILO(
         .clk               (clk               ),
         .rst               (rst               ),
         .hi_o              (hi_o),
-        .lo_o              (lo_o)
+        .lo_o              (lo_o),
+        .we                (lo_hi_we),
+        .hi_i              (hi_i),
+        .lo_i              (lo_i)
     );
     
 endmodule

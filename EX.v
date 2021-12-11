@@ -4,6 +4,7 @@ module EX(
     input wire rst,
     // input wire flush,
     input wire [`StallBus-1:0] stall,
+    output wire stallreq_for_ex,
 
     input wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,
 
@@ -21,11 +22,11 @@ module EX(
     
     output wire EX_sel_rf_res,
     
-    input wire [2:0] lo_hi_to_ex_bus,
+    input wire [7:0] lo_hi_to_ex_bus,
     input wire[31:0] hi_o,
     input wire[31:0] lo_o,
     
-    output wire lo_hi_to_mem_bus //待改？？？？？？？？？？？？？？？？？？？？？？？？？
+    output wire [66:0] lo_hi_ex_to_wb_bus //待改？？？？？？？？？？？？？？？？？？？？？？？？？
     //用于解决load导致的数据相关
     //input wire MEM_sel_rf_res,
     //input wire [4:0] MEM_wb_r,
@@ -35,7 +36,7 @@ module EX(
 );
 
     reg [`ID_TO_EX_WD-1:0] id_to_ex_bus_r;
-    reg [2:0] lo_hi_to_ex_bus_r;
+    reg [7:0] lo_hi_to_ex_bus_r;
 
     always @ (posedge clk) begin
         if (rst) begin
@@ -46,7 +47,7 @@ module EX(
         // end
         else if (stall[2]==`Stop && stall[3]==`NoStop) begin
             id_to_ex_bus_r <= `ID_TO_EX_WD'b0; //EX段暂停，向EX段传入全0
-            lo_hi_to_ex_bus_r <= 3'b0;
+            lo_hi_to_ex_bus_r <= 8'b0;
         end
         else if (stall[2]==`NoStop) begin
             id_to_ex_bus_r <= id_to_ex_bus; //ID段正常执行了
@@ -68,9 +69,10 @@ module EX(
     wire [31:0] rf_rdata1, rf_rdata2;
     reg is_in_delayslot;
     
-    wire sel_lo_hi; //选择是lo还是hi寄存器
+    wire [1:0] sel_lo_hi; //选择是lo还是hi寄存器
     wire lo_hi_we; //写使能
     wire lo_hi_re; //读使能
+    wire inst_mult,inst_multu,inst_div, inst_divu; 
 
     assign {
         ex_pc,          // 148:117
@@ -90,7 +92,11 @@ module EX(
     assign {
     sel_lo_hi, //2
     lo_hi_we, //1
-    lo_hi_re //0
+    lo_hi_re, //0
+    inst_mult,
+    inst_multu,
+    inst_div,
+    inst_divu
     } = lo_hi_to_ex_bus_r;
     
     assign EX_sel_rf_res = sel_rf_res;
@@ -143,6 +149,116 @@ module EX(
         ex_result       // 31:0
     };
     
+// MUL part
+    wire [63:0] mul_result;
+    wire mul_signed; // 有符号乘法标记
 
+    mul u_mul(
+    	.clk        (clk            ),
+        .resetn     (~rst           ),
+        .mul_signed (mul_signed     ),
+        .ina        (      ), // 乘法源操作数1
+        .inb        (      ), // 乘法源操作数2
+        .result     (mul_result     ) // 乘法结果 64bit
+    );
+
+    // DIV part
+    wire [63:0] div_result;
+    //wire inst_div, inst_divu; 
+    wire div_ready_i;
+    reg stallreq_for_div; //需要暂停？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？
+    assign stallreq_for_ex = stallreq_for_div;
+
+    reg [31:0] div_opdata1_o;
+    reg [31:0] div_opdata2_o;
+    reg div_start_o;
+    reg signed_div_o;
+
+    div u_div(
+    	.rst          (rst          ),
+        .clk          (clk          ),
+        .signed_div_i (signed_div_o ),
+        .opdata1_i    (div_opdata1_o    ),
+        .opdata2_i    (div_opdata2_o    ),
+        .start_i      (div_start_o      ),
+        .annul_i      (1'b0      ),
+        .result_o     (div_result     ), // 除法结果 64bit
+        .ready_o      (div_ready_i      )
+    );
+
+    always @ (*) begin
+        if (rst) begin
+            stallreq_for_div = `NoStop;
+            div_opdata1_o = `ZeroWord;
+            div_opdata2_o = `ZeroWord;
+            div_start_o = `DivStop;
+            signed_div_o = 1'b0;
+        end
+        else begin
+            stallreq_for_div = `NoStop;
+            div_opdata1_o = `ZeroWord;
+            div_opdata2_o = `ZeroWord;
+            div_start_o = `DivStop;
+            signed_div_o = 1'b0;
+            case ({inst_div,inst_divu})
+                2'b10:begin
+                    if (div_ready_i == `DivResultNotReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStart;
+                        signed_div_o = 1'b1;
+                        stallreq_for_div = `Stop;
+                    end
+                    else if (div_ready_i == `DivResultReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b1;
+                        stallreq_for_div = `NoStop;
+                    end
+                    else begin
+                        div_opdata1_o = `ZeroWord;
+                        div_opdata2_o = `ZeroWord;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `NoStop;
+                    end
+                end
+                2'b01:begin
+                    if (div_ready_i == `DivResultNotReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStart;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `Stop;
+                    end
+                    else if (div_ready_i == `DivResultReady) begin
+                        div_opdata1_o = rf_rdata1;
+                        div_opdata2_o = rf_rdata2;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `NoStop;
+                    end
+                    else begin
+                        div_opdata1_o = `ZeroWord;
+                        div_opdata2_o = `ZeroWord;
+                        div_start_o = `DivStop;
+                        signed_div_o = 1'b0;
+                        stallreq_for_div = `NoStop;
+                    end
+                end
+                default:begin
+                end
+            endcase
+        end
+    end
+
+    // mul_result 和 div_result 可以直接使用
+    
+    assign lo_hi_ex_to_wb_bus = {
+    sel_lo_hi,
+    lo_hi_we,
+    div_result
+    };
     
 endmodule
