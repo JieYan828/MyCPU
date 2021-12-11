@@ -6,9 +6,15 @@ module MEM(
     input wire [`StallBus-1:0] stall,
 
     input wire [`EX_TO_MEM_WD-1:0] ex_to_mem_bus,
-    input wire data_sram_rdata,
+    input wire [31:0] data_sram_rdata,
+    
 
-    output wire [`MEM_TO_WB_WD-1:0] mem_to_wb_bus
+    output wire [`MEM_TO_WB_WD-1:0] mem_to_wb_bus,
+    //解决数据相关！！！！！！！！！！！！！！！！！！！！！！！！！！！！
+    output wire [31:0] MEM_ID,//MEM段手中的运算结果
+    output wire MEM_wb_en, //写回使能为高
+    output wire [4:0] MEM_wb_r, //写回寄存器的索引
+    output wire MEM_sel_rf_res
 );
 
     reg [`EX_TO_MEM_WD-1:0] ex_to_mem_bus_r;
@@ -47,10 +53,17 @@ module MEM(
         rf_waddr,       // 36:32
         ex_result       // 31:0
     } =  ex_to_mem_bus_r;
-
-
-
+    
+    
+    //访存操作！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
+    assign mem_result = data_sram_rdata;
     assign rf_wdata = sel_rf_res ? mem_result : ex_result;
+    
+    //解决数据相关！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
+    assign MEM_ID = rf_wdata;
+    assign MEM_wb_en = rf_we;
+    assign MEM_wb_r = rf_waddr;
+    assign MEM_sel_rf_res = sel_rf_res;
 
     assign mem_to_wb_bus = {
         mem_pc,     // 41:38
@@ -59,7 +72,7 @@ module MEM(
         rf_wdata    // 31:0
     };
 
-
+    
 
 
 endmodule
