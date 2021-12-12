@@ -15,8 +15,6 @@ module IF(
     output wire [3:0] inst_sram_wen,
     output wire [31:0] inst_sram_addr,
     output wire [31:0] inst_sram_wdata
-    
-    
 );
     reg [31:0] pc_reg;
     reg ce_reg;
