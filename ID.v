@@ -19,7 +19,7 @@ module ID(
     
     output wire [7:0]lo_hi_to_ex_bus,
     
-    output wire [34:0] lo_hi_to_wb_bus,
+    //output wire [34:0] lo_hi_to_wb_bus,
     
     //解决数据相关,来自EX段的数据！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
     input wire [31:0] EX_ID ,//上一条指令的结果
@@ -28,6 +28,10 @@ module ID(
     //用于解决由load引起的数据相关
     input wire EX_sel_rf_res,
     input wire MEM_sel_rf_res,
+    
+    //解决由div引起的数据相关
+    input wire WB_lo_hi_we,
+    input wire EX_inst_div,
     
     //解决数据相关！！！！！！！！！！！！！！！！！！！！！！！！！！！！
     input wire [31:0] MEM_ID,//MEM段手中的运算结果
@@ -43,7 +47,6 @@ module ID(
     reg [`IF_TO_ID_WD-1:0] if_to_id_bus_r;
     //reg [31:0] inst_sram_rdata_r;
     reg [31:0] clk_count = 32'b0;
-    //reg noop;
     wire [31:0] inst;
     wire [31:0] id_pc;
     wire ce;
@@ -53,6 +56,7 @@ module ID(
     wire [31:0] wb_rf_wdata;
     
     wire [31:0] stall_clk;
+    reg [`IF_TO_ID_WD-1:0] store_if_to_id_bus_r;
 
     always @ (posedge clk) begin
         clk_count<=clk_count+1;
@@ -63,12 +67,14 @@ module ID(
         //     ic_to_id_bus <= `IC_TO_ID_WD'b0;
         // end
         else if (stall[1]==`Stop && stall[2]==`NoStop) begin
-            if_to_id_bus_r <= `IF_TO_ID_WD'b0;
+            //if_to_id_bus_r <= `IF_TO_ID_WD'b0;
+            if_to_id_bus_r <= store_if_to_id_bus_r;
             //noop <= 1'b1;
             //inst_sram_rdata_r <= 32'b0;
         end
         else if (stall[1]==`NoStop) begin
             if_to_id_bus_r <= if_to_id_bus;
+            store_if_to_id_bus_r <= if_to_id_bus;
             //noop <= 1'b0;
             //inst_sram_rdata_r <= inst_sram_rdata;
         end
@@ -84,7 +90,7 @@ module ID(
     //assign inst = inst_sram_rdata;
 //    assign inst = (clk_count == 32'h00000002)? inst_sram_rdata :
 //                  ( stall_clk ==32'hffffffff ) ? inst_sram_rdata : 32'hffffffff;
-    assign inst = (EX_sel_rf_res) ? 32'hffffffff : inst_sram_rdata;
+    assign inst = (EX_sel_rf_res ) ? 32'hffffffff : inst_sram_rdata;
     assign {
         ce,
         id_pc
@@ -356,8 +362,8 @@ module ID(
 //                        clk_count == 32'h00001bcd||clk_count == 32'h00001bd3||
 //                        clk_count == 32'h000028fa||clk_count == 32'h00002900||
 //                        clk_count == 32'h00002e12||clk_count == 32'h00002e18) ? 1'b1 : 1'b0;
-    assign stallreq = (sel_rf_res) ? 1'b1 : 1'b0;
-    assign stall_clk = (sel_rf_res) ? clk_count : 32'hffffffff;
+    assign stallreq = (sel_rf_res ) ? 1'b1 : 1'b0;
+    //assign stall_clk = (sel_rf_res) ? clk_count : 32'hffffffff;
     
     assign id_to_ex_bus = {
         id_pc,       // 158:127
@@ -384,11 +390,11 @@ module ID(
     inst_divu
     };
     
-    assign lo_hi_to_wb_bus ={
-    sel_lo_hi,
-    lo_hi_we,
-    sel_rdata1
-    };
+//    assign lo_hi_to_wb_bus ={
+//    sel_lo_hi,
+//    lo_hi_we,
+//    sel_rdata1
+//    };
 
     wire br_e;
     wire [31:0] br_addr;
@@ -432,11 +438,7 @@ module ID(
                       inst_bgezal ? bgez_addr : 
                       inst_jalr ? (sel_rdata1): 32'b0;
                       
-    //分支跳转会有一拍的暂停！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-    //assign stallreq = 1'b1; //发送暂停信号
-//    assign stallreq = inst_jr ? `Stop :
-//                       `NoStop;
-                       
+
 
     assign br_bus = {
         br_e,

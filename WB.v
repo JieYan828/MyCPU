@@ -19,8 +19,9 @@ module WB(
     output wire [4:0] WB_wb_r, //Ð´»Ø¼Ä´æÆ÷µÄË÷Òý 
     
     //lo_hi¼Ä´æÆ÷
-    input wire [34:0] lo_hi_to_wb_bus,
+    //input wire [34:0] lo_hi_to_wb_bus,
     input wire [66:0] lo_hi_ex_to_wb_bus,
+    output wire WB_lo_hi_we,
     
     output lo_hi_we_o,
     output [31:0] lo_i,
@@ -28,7 +29,7 @@ module WB(
 );
 
     reg [`MEM_TO_WB_WD-1:0] mem_to_wb_bus_r;
-    reg [34:0] lo_hi_to_wb_bus_r;
+    //reg [34:0] lo_hi_to_wb_bus_r;
     reg [66:0] lo_hi_ex_to_wb_bus_r;
 
     always @ (posedge clk) begin
@@ -40,12 +41,12 @@ module WB(
         // end
         else if (stall[4]==`Stop && stall[5]==`NoStop) begin
             mem_to_wb_bus_r <= `MEM_TO_WB_WD'b0;
-            lo_hi_to_wb_bus_r <= 35'b0;
+            //lo_hi_to_wb_bus_r <= 35'b0;
             lo_hi_ex_to_wb_bus_r <= 67'b0;
         end
         else if (stall[4]==`NoStop) begin
             mem_to_wb_bus_r <= mem_to_wb_bus;
-            lo_hi_to_wb_bus_r <= lo_hi_to_wb_bus;
+            //lo_hi_to_wb_bus_r <= lo_hi_to_wb_bus;
             lo_hi_ex_to_wb_bus_r <= lo_hi_ex_to_wb_bus;
         end
     end
@@ -57,8 +58,8 @@ module WB(
     
     wire [1:0] sel_lo_hi;
     wire lo_hi_we;
-    wire [31:0] lo_hi_wdata;
-    wire [63:0] mult_div_result;
+    //wire [31:0] lo_hi_wdata;
+    wire [63:0] lo_hi_result;
 
     assign {
         wb_pc,
@@ -67,15 +68,16 @@ module WB(
         rf_wdata
     } = mem_to_wb_bus_r;
     
-    assign {
+//    assign {
+//    sel_lo_hi,
+//    lo_hi_we,
+//    lo_hi_wdata
+//    } = lo_hi_to_wb_bus_r;
+    
+    assign     {
     sel_lo_hi,
     lo_hi_we,
-    lo_hi_wdata
-    } = lo_hi_to_wb_bus_r;
-    
-    assign {
-    mult_div_result
-    } = lo_hi_ex_to_wb_bus_r;
+    lo_hi_result} = lo_hi_ex_to_wb_bus_r;
     
     //Ð´31ºÅ¼Ä´æÆ÷
     //wire [31:0] sel_rf_wdata;
@@ -90,10 +92,11 @@ module WB(
     
     //Ð´hi_lo¼Ä´æÆ÷
     assign lo_hi_we_o = lo_hi_we;
-    assign lo_i = (sel_lo_hi==2'b01) ? lo_hi_wdata : mult_div_result[31:0];
-                  //(sel_lo_hi==2'b10||sel_lo_hi==2'b11) ? mult_div_result[0:31] : 32'b0;
-    assign hi_i = (sel_lo_hi==2'b00) ? lo_hi_wdata : mult_div_result[63:32];
-                  //(sel_lo_hi==2'b10||sel_lo_hi==2'b11) ? mult_div_result[63:32] : 32'b0;
+    assign WB_lo_hi_we = lo_hi_we;
+    assign lo_i = (lo_hi_we & sel_lo_hi==2'b01) ? lo_hi_result[31:0] :
+                  (lo_hi_we & (sel_lo_hi==2'b10||sel_lo_hi==2'b11)) ? lo_hi_result[31:0] : 32'b0;
+    assign hi_i = (lo_hi_we & sel_lo_hi==2'b00) ? lo_hi_result[31:0] : 
+                  (lo_hi_we & (sel_lo_hi==2'b10||sel_lo_hi==2'b11)) ? lo_hi_result[63:32] : 32'b0;
     
     assign WB_ID = rf_wdata; //ÄÃµ½aluµÄ½á¹û£¡£¡£¡£¡£¡£¡£¡£¡£¡£¡!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     assign WB_wb_en = rf_we;

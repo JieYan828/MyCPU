@@ -35,11 +35,12 @@ module mycpu_core(
     wire [7:0] lo_hi_to_ex_bus;
     wire [31:0] hi_o;
     wire [31:0] lo_o;
-    wire [34:0] lo_hi_to_wb_bus;
+    //wire [34:0] lo_hi_to_wb_bus;
     wire lo_hi_we;
     wire [31:0] hi_i;
     wire [31:0] lo_i;
     wire [66:0] lo_hi_ex_to_wb_bus;
+    wire WB_lo_hi_we;
     
     //解决数据相关！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
     wire [31:0] EX_ID ;//上一条指令的结果
@@ -55,6 +56,7 @@ module mycpu_core(
     wire [4:0] MEM_wb_r; //写回寄存器的索引
     wire MEM_sel_rf_res;
     wire stallreq_for_load;
+    wire EX_inst_div;
     
     //解决数据相关！！！！！！！！！！！！！！！！！！！！！！！！！！！！
     wire [31:0] WB_ID;//MEM段手中的运算结果
@@ -97,7 +99,9 @@ module mycpu_core(
         .WB_wb_r         (WB_wb_r),
         .stallreq         (stallreq_for_load),
         .lo_hi_to_ex_bus (lo_hi_to_ex_bus),
-        .lo_hi_to_wb_bus (lo_hi_to_wb_bus)
+        .EX_inst_div     (EX_inst_div),
+        .WB_lo_hi_we     (WB_lo_hi_we)
+        //.lo_hi_to_wb_bus (lo_hi_to_wb_bus)
     );
 
     EX u_EX(
@@ -118,7 +122,8 @@ module mycpu_core(
         .hi_o              (hi_o),
         .lo_o              (lo_o),
         .lo_hi_ex_to_wb_bus (lo_hi_ex_to_wb_bus),
-        .stallreq_for_ex   (stallreq_for_ex)
+        .stallreq_for_ex   (stallreq_for_ex),
+        .EX_inst_div     (EX_inst_div)
     );
 
     MEM u_MEM(
@@ -147,11 +152,12 @@ module mycpu_core(
         .WB_ID           (WB_ID),
         .WB_wb_en        (WB_wb_en),
         .WB_wb_r         (WB_wb_r),
-        .lo_hi_to_wb_bus (lo_hi_to_wb_bus),
+        //.lo_hi_to_wb_bus (lo_hi_to_wb_bus),
         .lo_hi_we_o       (lo_hi_we),
         .lo_i             (lo_i),
         .hi_i             (hi_i),
-        .lo_hi_ex_to_wb_bus (lo_hi_ex_to_wb_bus)
+        .lo_hi_ex_to_wb_bus (lo_hi_ex_to_wb_bus),
+        .WB_lo_hi_we     (WB_lo_hi_we)
     );
 
     CTRL u_CTRL(

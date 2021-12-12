@@ -34,7 +34,8 @@ module CTRL(
         end
         else if(stallreq_for_ex) begin
             stall[2] = `Stop;
-            stall[1:0] = 2'b1;
+            stall[0] = `Stop;
+            stall[1] = `Stop;
             stall[`StallBus-1:3] = 3'b0;
         end
         else begin
