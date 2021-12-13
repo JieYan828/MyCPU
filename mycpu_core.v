@@ -11,7 +11,7 @@ module mycpu_core(
     input wire [31:0] inst_sram_rdata,
 
     output wire data_sram_en,
-    output wire [3:0] data_sram_wen,
+    output wire [3:0]data_sram_wen,
     output wire [31:0] data_sram_addr,
     output wire [31:0] data_sram_wdata,
     input wire [31:0] data_sram_rdata,
@@ -30,7 +30,16 @@ module mycpu_core(
     wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus;
     wire [37:0] ex_to_id_bus;
     wire [37:0] mem_to_id_bus;
+    wire [37:0] wb_to_id_bus;
     wire [`StallBus-1:0] stall;
+    wire stall_id;
+    wire inst_is_lw;
+    wire stallreq_for_ex;
+    wire [64:0] ex_mem_lohi_bus;
+    wire [64:0] mem_wb_lohi_bus;
+    wire [64:0] mem_ex_lohi_bus;
+    wire [64:0] wb_ex_lohi_bus;
+    wire [64:0] wb_id_lohi_bus;
 
     IF u_IF(
     	.clk             (clk             ),
@@ -49,27 +58,35 @@ module mycpu_core(
     	.clk             (clk             ),
         .rst             (rst             ),
         .stall           (stall           ),
-        .stallreq        (stallreq        ),
+        .stallreq        (stall_id        ),
         .if_to_id_bus    (if_to_id_bus    ),
         .ex_to_id_bus    (ex_to_id_bus    ),
         .mem_to_id_bus   (mem_to_id_bus   ),
         .inst_sram_rdata (inst_sram_rdata ),
         .wb_to_rf_bus    (wb_to_rf_bus    ),
         .id_to_ex_bus    (id_to_ex_bus    ),
-        .br_bus          (br_bus          )
+        .wb_to_id_bus    (wb_to_id_bus    ),
+        .br_bus          (br_bus          ),
+        .inst_is_lw      (inst_is_lw      ),
+        .wb_id_lohi_bus  (wb_id_lohi_bus  ),
+        .mem_ex_lohi_bus (mem_ex_lohi_bus ),
+        .wb_ex_lohi_bus  (wb_ex_lohi_bus  )
     );
 
     EX u_EX(
     	.clk             (clk             ),
         .rst             (rst             ),
         .stall           (stall           ),
+        .stallreq_for_ex (stallreq_for_ex ),
+        .ex_mem_lohi_bus (ex_mem_lohi_bus ),
         .id_to_ex_bus    (id_to_ex_bus    ),
         .ex_to_mem_bus   (ex_to_mem_bus   ),
         .ex_to_id_bus    (ex_to_id_bus    ),
         .data_sram_en    (data_sram_en    ),
         .data_sram_wen   (data_sram_wen   ),
         .data_sram_addr  (data_sram_addr  ),
-        .data_sram_wdata (data_sram_wdata )
+        .data_sram_wdata (data_sram_wdata ),
+        .inst_is_lw      (inst_is_lw      )
     );
 
     MEM u_MEM(
@@ -79,7 +96,10 @@ module mycpu_core(
         .ex_to_mem_bus   (ex_to_mem_bus   ),
         .mem_to_id_bus   (mem_to_id_bus   ),
         .data_sram_rdata (data_sram_rdata ),
-        .mem_to_wb_bus   (mem_to_wb_bus   )
+        .mem_to_wb_bus   (mem_to_wb_bus   ),
+        .ex_mem_lohi_bus (ex_mem_lohi_bus ),
+        .mem_wb_lohi_bus (mem_wb_lohi_bus ),
+        .mem_ex_lohi_bus (mem_ex_lohi_bus )
     );
     
     WB u_WB(
@@ -88,15 +108,21 @@ module mycpu_core(
         .stall             (stall             ),
         .mem_to_wb_bus     (mem_to_wb_bus     ),
         .wb_to_rf_bus      (wb_to_rf_bus      ),
+        .wb_to_id_bus      (wb_to_id_bus      ),
         .debug_wb_pc       (debug_wb_pc       ),
         .debug_wb_rf_wen   (debug_wb_rf_wen   ),
         .debug_wb_rf_wnum  (debug_wb_rf_wnum  ),
-        .debug_wb_rf_wdata (debug_wb_rf_wdata )
+        .debug_wb_rf_wdata (debug_wb_rf_wdata ),
+        .mem_wb_lohi_bus   (mem_wb_lohi_bus   ),
+        .wb_ex_lohi_bus    (wb_ex_lohi_bus    ),
+        .wb_id_lohi_bus    (wb_id_lohi_bus    )
     );
 
     CTRL u_CTRL(
-    	.rst   (rst   ),
-        .stall (stall )
+    	.rst      (rst     ),
+    	.stall_id (stall_id),
+    	.stallreq_for_ex (stallreq_for_ex ),
+        .stall    (stall   )
     );
     
 endmodule
