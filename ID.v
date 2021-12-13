@@ -7,7 +7,7 @@ module ID(
     
     input wire [37:0] ex_to_id_bus,
     input wire [37:0] mem_to_id_bus,
-    output wire stallreq,        //ÔİÍ£ÇëÇó
+    output wire stallreq,        //æš‚åœè¯·æ±‚
 
     input wire [`IF_TO_ID_WD-1:0] if_to_id_bus,
 
@@ -17,19 +17,19 @@ module ID(
 
     output wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,
 
-    output wire [`BR_WD-1:0] br_bus //brÌø×ª
+    output wire [`BR_WD-1:0] br_bus //brè·³è½¬
 );
 
     reg [`IF_TO_ID_WD-1:0] if_to_id_bus_r;  //
     wire [31:0] inst;
-    wire [31:0] id_pc;                       //id¶ÎÈ¡µÃÖ¸Áî¶ÔÓ¦µØÖ·
-    wire ce;                                 //Ğ¾Æ¬Ê¹ÄÜ
+    wire [31:0] id_pc;                       //idæ®µå–å¾—æŒ‡ä»¤å¯¹åº”åœ°å€
+    wire ce;                                 //èŠ¯ç‰‡ä½¿èƒ½
 
-    wire wb_rf_we;         //Ğ´ÈëÊ¹ÄÜ
-    wire [4:0] wb_rf_waddr;//ÒªĞ´ÈëµÄ¼Ä´æÆ÷µØÖ·
-    wire [31:0] wb_rf_wdata;//ÒªĞ´ÈëµÄÊı¾İ
+    wire wb_rf_we;         //å†™å…¥ä½¿èƒ½
+    wire [4:0] wb_rf_waddr;//è¦å†™å…¥çš„å¯„å­˜å™¨åœ°å€
+    wire [31:0] wb_rf_wdata;//è¦å†™å…¥çš„æ•°æ®
 
-    //ÓÉÊ¹ÄÜºÍstall¾ö¶¨ÊÇ·ñ¿ªÊ¼id¶Î¹¤×÷
+    //ç”±ä½¿èƒ½å’Œstallå†³å®šæ˜¯å¦å¼€å§‹idæ®µå·¥ä½œ
     always @ (posedge clk) begin
         if (rst) begin
             if_to_id_bus_r <= `IF_TO_ID_WD'b0;        
@@ -44,6 +44,23 @@ module ID(
             if_to_id_bus_r <= if_to_id_bus;
         end
     end
+  
+        
+    //å› ä¸ºç›´æ¥ç”¨äº†å­˜å‚¨å™¨å½“æŒ‡ä»¤çš„çº§é—´å¯„å­˜å™¨,æš‚åœçš„æ—¶å€™ä¼šæœ‰ä¸€æ¡æŒ‡ä»¤ä¸¢å¤±
+    //æš‚åœæ—¶ä¿å­˜æŒ‡ä»¤->ä¸ªå¯„å­˜å™¨ä¸€æ ·çš„ä¸œè¥¿
+    reg[31:0] lost_inst;
+    reg flag;
+        always @ (posedge clk) begin
+        if (stall[2]==`Stop && stall[3]==`NoStop) begin
+            flag <= 1'b1;
+            lost_inst <=inst_sram_rdata;
+        end
+        else begin
+            flag <= 1'b0;
+            lost_inst <=32'b0;
+        end
+    end
+    assign inst = flag?lost_inst:inst_sram_rdata;
     
     assign inst = inst_sram_rdata;
     assign {
@@ -83,7 +100,7 @@ module ID(
 
     wire [31:0] rdata1, rdata2;
 
-   //exÁ¬id
+   //exè¿id
    wire ex_we;
    wire [4:0] rf_waddr_ex;
    wire [31:0]ex_result;
@@ -92,7 +109,7 @@ module ID(
    rf_waddr_ex,
    ex_result
    }=ex_to_id_bus;
-  //memÁ¬id
+  //memè¿id
    wire mem_we;
    wire [4:0] rf_waddr_mem;
    wire [31:0]mem_result;
@@ -144,7 +161,7 @@ module ID(
     
     decoder_5_32 u0_decoder_5_32(
     	.in  (rs  ),
-        .out (rs_d )//¶ÀÈÈ
+        .out (rs_d )//ç‹¬çƒ­
     );
 
     decoder_5_32 u1_decoder_5_32(
@@ -168,7 +185,7 @@ module ID(
     assign inst_sll     = op_d[6'b00_0000]&func_d[6'b00_0000];
     assign inst_lw      = op_d[6'b10_0011];
 
-    //¶àÖÖÔ´¼Ä´æÆ÷Ñ¡Ôñ·½Ê½
+    //å¤šç§æºå¯„å­˜å™¨é€‰æ‹©æ–¹å¼
     // rs to reg1
     assign sel_alu_src1[0] = inst_ori | inst_addiu | inst_sub | inst_slt |inst_addu |
                               inst_or | inst_xor | inst_lw;
@@ -257,11 +274,11 @@ module ID(
         sel_alu_src2,   // 79:76
         data_ram_en,    // 75
         data_ram_wen,   // 74:71  
-        rf_we,          // 70     ¼Ä´æÆ÷Ğ´Ê¹ÄÜ
-        rf_waddr,       // 69:65  ¼Ä´æÆ÷Ğ´ÈëµØÖ·
-        sel_rf_res,     // 64     ÊÇ·ñÊÇ´ÓÄÚ´æµ½¼Ä´æÆ÷µÄ·Ã´æ²Ù×÷
-        rdata1,         // 63:32  ²Ù×÷Êı1
-        rdata2          // 31:0   ²Ù×÷Êı2
+        rf_we,          // 70     å¯„å­˜å™¨å†™ä½¿èƒ½
+        rf_waddr,       // 69:65  å¯„å­˜å™¨å†™å…¥åœ°å€
+        sel_rf_res,     // 64     æ˜¯å¦æ˜¯ä»å†…å­˜åˆ°å¯„å­˜å™¨çš„è®¿å­˜æ“ä½œ
+        rdata1,         // 63:32  æ“ä½œæ•°1
+        rdata2          // 31:0   æ“ä½œæ•°2
     };
 
 
