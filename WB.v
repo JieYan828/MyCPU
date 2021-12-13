@@ -79,9 +79,9 @@ module WB(
     lo_hi_we,
     lo_hi_result} = lo_hi_ex_to_wb_bus_r;
     
-    //Ð´31ºÅ¼Ä´æÆ÷
-    //wire [31:0] sel_rf_wdata;
-    //assign sel_rf_wdata = (rf_waddr==5'b11111) ? wb_pc +32'h8 : rf_wdata;//////////////////////////////
+    //Ð´lo_hi¼Ä´æÆ÷
+    wire [31:0] sel_rf_wdata;
+    assign sel_rf_wdata = (rf_waddr==5'b11111) ? wb_pc +32'h8 : rf_wdata;//////////////////////////////
 
     // assign wb_to_rf_bus = mem_to_wb_bus_r[`WB_TO_RF_WD-1:0];
     assign wb_to_rf_bus = {

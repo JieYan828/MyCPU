@@ -27,7 +27,8 @@ module EX(
     input wire[31:0] lo_o,
     
     output wire [66:0] lo_hi_ex_to_wb_bus, //待改？？？？？？？？？？？？？？？？？？？？？？？？？
-    output wire EX_inst_div//用来解决div引起的数据相关
+    output wire [31:0] EX_pc,//用来解决div引起的数据相关
+    input wire WB_lo_hi_we
     //用于解决load导致的数据相关
     //input wire MEM_sel_rf_res,
     //input wire [4:0] MEM_wb_r,
@@ -49,26 +50,13 @@ module EX(
         //     id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
         // end
         else if (stall[2]==`Stop && stall[3]==`NoStop) begin
-            //id_to_ex_bus_r <= `ID_TO_EX_WD'b0; //EX段暂停，向EX段传入全0
-            //if(lo_hi_to_ex_bus[5]==1 & lo_hi_to_ex_bus[7]==0) begin //需要暂停，但是要保留传下来的值
-            if(store_id_to_ex_bus_r[148:117]==32'hbfc7d7d8) begin
-            id_to_ex_bus_r <= id_to_ex_bus;
-            //id_to_ex_bus_r <= store_id_to_ex_bus_r;
-            end
-            else begin
             id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
-            end
             lo_hi_to_ex_bus_r <= store_div_bus;
         end
         else if (stall[2]==`NoStop) begin
-            //if(id_to_ex_bus[148:117]==32'hbfc7d7dc) begin
             store_id_to_ex_bus_r <= id_to_ex_bus;
-            //end
-            //else begin
             id_to_ex_bus_r <= id_to_ex_bus; //EX段正常执行
-            //end
             lo_hi_to_ex_bus_r <= lo_hi_to_ex_bus;
-            //store_id_to_ex_bus_r <= id_to_ex_bus;
             store_div_bus <= lo_hi_to_ex_bus;
         end
     end
@@ -106,7 +94,7 @@ module EX(
         sel_rf_res,     // 64
         rf_rdata1,         // 63:32
         rf_rdata2          // 31:0
-    } = id_to_ex_bus_r; //用ID段传下来的东西给EX段赋值
+    } = (WB_lo_hi_we) ? 148'd0 : id_to_ex_bus_r; //用ID段传下来的东西给EX段赋值
     
     assign {
     sel_lo_hi, //7:6
@@ -119,12 +107,12 @@ module EX(
     } = lo_hi_to_ex_bus_r;
     
     assign EX_sel_rf_res = sel_rf_res;
-    assign EX_inst_div = inst_div;
+    assign EX_pc = ex_pc;
 
     wire [31:0] imm_sign_extend, imm_zero_extend, sa_zero_extend; //立即数符号扩展、立即数0扩展和？？？？？？？？？？？？？？？
     assign imm_sign_extend = {{16{inst[15]}},inst[15:0]};
     assign imm_zero_extend = {16'b0, inst[15:0]};
-    assign sa_zero_extend = {27'b0,inst[10:6]}; //？？？？？？？？？？
+    assign sa_zero_extend = {27'b0,inst[10:6]}; 
 
     wire [31:0] alu_src1, alu_src2;
     wire [31:0] alu_result, ex_result; //ALU段存放的结果以及符号扩展的结果
@@ -146,7 +134,8 @@ module EX(
     //assign ex_result = (rf_waddr==5'b11111) ? ex_pc + 32'h8 : alu_result; 
     assign ex_result = (lo_hi_re & sel_lo_hi[0]==1) ? lo_o: 
                         (lo_hi_re & sel_lo_hi[0]==0) ? hi_o : alu_result;
-    
+                        
+    //assign ex_result = alu_result;
     assign EX_ID = ex_result; //拿到alu的结果！！！！！！！！！！!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     assign EX_wb_en = rf_we;
     assign EX_wb_r = rf_waddr;
@@ -186,7 +175,7 @@ module EX(
     wire [63:0] div_result;
     //wire inst_div, inst_divu; 
     wire div_ready_i;
-    reg stallreq_for_div; //需要暂停？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？
+    reg stallreq_for_div; 
     assign stallreq_for_ex = stallreq_for_div;
 
     reg [31:0] div_opdata1_o;

@@ -17,7 +17,7 @@ module ID(
 
     output wire [`BR_WD-1:0] br_bus,
     
-    output wire [7:0]lo_hi_to_ex_bus,
+    output wire [7:0] lo_hi_to_ex_bus,
     
     //output wire [34:0] lo_hi_to_wb_bus,
     
@@ -30,8 +30,8 @@ module ID(
     input wire MEM_sel_rf_res,
     
     //解决由div引起的数据相关
-    input wire WB_lo_hi_we,
-    input wire EX_inst_div,
+    //input wire WB_lo_hi_we,
+    input wire [31:0] EX_pc,
     
     //解决数据相关！！！！！！！！！！！！！！！！！！！！！！！！！！！！
     input wire [31:0] MEM_ID,//MEM段手中的运算结果
@@ -90,7 +90,7 @@ module ID(
     //assign inst = inst_sram_rdata;
 //    assign inst = (clk_count == 32'h00000002)? inst_sram_rdata :
 //                  ( stall_clk ==32'hffffffff ) ? inst_sram_rdata : 32'hffffffff;
-    assign inst = (EX_sel_rf_res ) ? 32'hffffffff : inst_sram_rdata;
+    assign inst = (EX_sel_rf_res | EX_pc==32'hbfc7d7d8 | EX_pc==32'hbfc7d810) ? 32'hffffffff : inst_sram_rdata;
     assign {
         ce,
         id_pc
@@ -130,7 +130,7 @@ module ID(
     
     //控制LO和HI的读写
     wire [1:0] sel_lo_hi; //选择是lo还是hi寄存器,第2位为1表示两个寄存器都用，第1位为1表示用lo寄存器，第1位为0表示用hi寄存器
-    wire [1:0] lo_hi_we; //写使能
+    wire  lo_hi_we; //写使能
     wire lo_hi_re; //读使能
     
     
@@ -362,7 +362,7 @@ module ID(
 //                        clk_count == 32'h00001bcd||clk_count == 32'h00001bd3||
 //                        clk_count == 32'h000028fa||clk_count == 32'h00002900||
 //                        clk_count == 32'h00002e12||clk_count == 32'h00002e18) ? 1'b1 : 1'b0;
-    assign stallreq = (sel_rf_res ) ? 1'b1 : 1'b0;
+    assign stallreq = (sel_rf_res | inst_div) ? 1'b1 : 1'b0;
     //assign stall_clk = (sel_rf_res) ? clk_count : 32'hffffffff;
     
     assign id_to_ex_bus = {
@@ -381,13 +381,13 @@ module ID(
     };
     
     assign lo_hi_to_ex_bus = {
-    sel_lo_hi,
-    lo_hi_we,
-    lo_hi_re,
-    inst_mult,
-    inst_multu,
-    inst_div,
-    inst_divu
+    sel_lo_hi, //7:6
+    lo_hi_we, //5
+    lo_hi_re, //4
+    inst_mult, //3
+    inst_multu, //2
+    inst_div, //1
+    inst_divu //0
     };
     
 //    assign lo_hi_to_wb_bus ={
