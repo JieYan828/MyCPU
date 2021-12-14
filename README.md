@@ -16,3 +16,7 @@
 
 2.添加了sw、sltu、slti、sltiu、j、add、addi、and、andi指令
 
+## 通过point43
+
+添加了nor、xori、sllv、sra、srl、srav、srlv、bgez、bgtz、blez、bltz、bltzal、bgezal、jalr指令
+
