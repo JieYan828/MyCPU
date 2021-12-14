@@ -6,37 +6,44 @@ module MEM(
     input wire [`StallBus-1:0] stall,
 
     input wire [`EX_TO_MEM_WD-1:0] ex_to_mem_bus,
-    input wire [31:0] data_sram_rdata,
+    input wire [64:0] ex_mem_lohi_bus,
     
+    input wire [31:0]data_sram_rdata,
 
     output wire [`MEM_TO_WB_WD-1:0] mem_to_wb_bus,
-    //解决数据相关！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-    output wire [31:0] MEM_ID,//MEM段手中的运算结果
-    output wire MEM_wb_en, //写回使能为高
-    output wire [4:0] MEM_wb_r, //写回寄存器的索引
-    output wire MEM_sel_rf_res
+    output wire [37:0] mem_to_id_bus,
+    
+    output wire [64:0] mem_wb_lohi_bus,
+    output wire [64:0] mem_ex_lohi_bus
 );
 
     reg [`EX_TO_MEM_WD-1:0] ex_to_mem_bus_r;
+    reg [64:0] mem_wb_lohi_bus_r;
 
     always @ (posedge clk) begin
         if (rst) begin
             ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
+            mem_wb_lohi_bus_r<=65'b0;
         end
         // else if (flush) begin
         //     ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
         // end
         else if (stall[3]==`Stop && stall[4]==`NoStop) begin
             ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
+            mem_wb_lohi_bus_r<=65'b0;
         end
         else if (stall[3]==`NoStop) begin
             ex_to_mem_bus_r <= ex_to_mem_bus;
+            mem_wb_lohi_bus_r<=ex_mem_lohi_bus;
         end
     end
-
+    
+    assign mem_wb_lohi_bus= mem_wb_lohi_bus_r;
+    assign mem_ex_lohi_bus= mem_wb_lohi_bus_r;
+    
     wire [31:0] mem_pc;
     wire data_ram_en;
-    wire [3:0] data_ram_wen;
+    wire data_ram_wen;
     wire sel_rf_res;
     wire rf_we;
     wire [4:0] rf_waddr;
@@ -53,17 +60,11 @@ module MEM(
         rf_waddr,       // 36:32
         ex_result       // 31:0
     } =  ex_to_mem_bus_r;
-    
-    
-    //访存操作！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-    assign mem_result = data_sram_rdata;
+   
+   //鍥犱负鐜板湪鍙湁lw鐢ㄥ埌浜嗚繖涓紝鍏堣繖涔堟斁鐫�
+   assign mem_result=data_sram_rdata;
+
     assign rf_wdata = sel_rf_res ? mem_result : ex_result;
-    
-    //解决数据相关！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-    assign MEM_ID = rf_wdata;
-    assign MEM_wb_en = rf_we;
-    assign MEM_wb_r = rf_waddr;
-    assign MEM_sel_rf_res = sel_rf_res;
 
     assign mem_to_wb_bus = {
         mem_pc,     // 41:38
@@ -71,8 +72,13 @@ module MEM(
         rf_waddr,   // 36:32
         rf_wdata    // 31:0
     };
+    assign mem_to_id_bus = {
+        rf_we,      // 37
+        rf_waddr,   // 36:32
+        rf_wdata    // 31:0
+    };
 
-    
+
 
 
 endmodule
