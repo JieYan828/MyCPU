@@ -1,71 +1,74 @@
 `include "lib/defines.vh"
-module MEM(
+module WB(
     input wire clk,
     input wire rst,
     // input wire flush,
     input wire [`StallBus-1:0] stall,
 
-    input wire [`EX_TO_MEM_WD-1:0] ex_to_mem_bus,
-    input wire data_sram_rdata,
+    input wire [`MEM_TO_WB_WD-1:0] mem_to_wb_bus,
+    input wire [64:0] mem_wb_lohi_bus,
 
-    output wire [`MEM_TO_WB_WD-1:0] mem_to_wb_bus,
-    output wire [37:0] mem_to_id_bus
+    output wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus,
+    output wire [37:0] wb_to_id_bus,
+
+    output wire [31:0] debug_wb_pc,
+    output wire [3:0] debug_wb_rf_wen,
+    output wire [4:0] debug_wb_rf_wnum,
+    output wire [31:0] debug_wb_rf_wdata, 
+    output wire [64:0] wb_ex_lohi_bus,
+    output wire [64:0] wb_id_lohi_bus
 );
 
-    reg [`EX_TO_MEM_WD-1:0] ex_to_mem_bus_r;
-
+    reg [`MEM_TO_WB_WD-1:0] mem_to_wb_bus_r;
+    reg [64:0] wb_ex_lohi_bus_r;
     always @ (posedge clk) begin
         if (rst) begin
-            ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
+            mem_to_wb_bus_r <= `MEM_TO_WB_WD'b0;
+            wb_ex_lohi_bus_r<=65'b0;
         end
         // else if (flush) begin
-        //     ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
+        //     mem_to_wb_bus_r <= `MEM_TO_WB_WD'b0;
         // end
-        else if (stall[3]==`Stop && stall[4]==`NoStop) begin
-            ex_to_mem_bus_r <= `EX_TO_MEM_WD'b0;
+        else if (stall[4]==`Stop && stall[5]==`NoStop) begin
+            mem_to_wb_bus_r <= `MEM_TO_WB_WD'b0;
+            wb_ex_lohi_bus_r<=65'b0;
         end
-        else if (stall[3]==`NoStop) begin
-            ex_to_mem_bus_r <= ex_to_mem_bus;
+        else if (stall[4]==`NoStop) begin
+            mem_to_wb_bus_r <= mem_to_wb_bus;
+            wb_ex_lohi_bus_r<=mem_wb_lohi_bus;
         end
     end
-
-    wire [31:0] mem_pc;
-    wire data_ram_en;
-    wire [3:0] data_ram_wen;
-    wire sel_rf_res;
+    assign wb_ex_lohi_bus= wb_ex_lohi_bus_r;
+    assign wb_id_lohi_bus= wb_ex_lohi_bus_r;
+    
+    wire [31:0] wb_pc;
     wire rf_we;
     wire [4:0] rf_waddr;
     wire [31:0] rf_wdata;
-    wire [31:0] ex_result;
-    wire [31:0] mem_result;
 
     assign {
-        mem_pc,         // 75:44
-        data_ram_en,    // 43
-        data_ram_wen,   // 42:39
-        sel_rf_res,     // 38
-        rf_we,          // 37
-        rf_waddr,       // 36:32
-        ex_result       // 31:0
-    } =  ex_to_mem_bus_r;
+        wb_pc,
+        rf_we,
+        rf_waddr,
+        rf_wdata
+    } = mem_to_wb_bus_r;
 
-
-
-    assign rf_wdata = sel_rf_res ? mem_result : ex_result;
-
-    assign mem_to_wb_bus = {
-        mem_pc,     // 41:38
-        rf_we,      // 37
-        rf_waddr,   // 36:32
-        rf_wdata    // 31:0
+    // assign wb_to_rf_bus = mem_to_wb_bus_r[`WB_TO_RF_WD-1:0];
+    assign wb_to_rf_bus = {
+        rf_we,
+        rf_waddr,
+        rf_wdata
     };
-    assign mem_to_id_bus = {
-        rf_we,      // 37
-        rf_waddr,   // 36:32
-        rf_wdata    // 31:0
+    assign wb_to_id_bus = {
+        rf_we,
+        rf_waddr,
+        rf_wdata
     };
 
+    assign debug_wb_pc = wb_pc;
+    assign debug_wb_rf_wen = {4{rf_we}};
+    assign debug_wb_rf_wnum = rf_waddr;
+    assign debug_wb_rf_wdata = rf_wdata;
 
-
-
+    
 endmodule
