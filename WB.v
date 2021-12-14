@@ -6,32 +6,41 @@ module WB(
     input wire [`StallBus-1:0] stall,
 
     input wire [`MEM_TO_WB_WD-1:0] mem_to_wb_bus,
+    input wire [64:0] mem_wb_lohi_bus,
 
     output wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus,
+    output wire [37:0] wb_to_id_bus,
 
     output wire [31:0] debug_wb_pc,
     output wire [3:0] debug_wb_rf_wen,
     output wire [4:0] debug_wb_rf_wnum,
-    output wire [31:0] debug_wb_rf_wdata 
+    output wire [31:0] debug_wb_rf_wdata, 
+    output wire [64:0] wb_ex_lohi_bus,
+    output wire [64:0] wb_id_lohi_bus
 );
 
     reg [`MEM_TO_WB_WD-1:0] mem_to_wb_bus_r;
-
+    reg [64:0] wb_ex_lohi_bus_r;
     always @ (posedge clk) begin
         if (rst) begin
             mem_to_wb_bus_r <= `MEM_TO_WB_WD'b0;
+            wb_ex_lohi_bus_r<=65'b0;
         end
         // else if (flush) begin
         //     mem_to_wb_bus_r <= `MEM_TO_WB_WD'b0;
         // end
         else if (stall[4]==`Stop && stall[5]==`NoStop) begin
             mem_to_wb_bus_r <= `MEM_TO_WB_WD'b0;
+            wb_ex_lohi_bus_r<=65'b0;
         end
         else if (stall[4]==`NoStop) begin
             mem_to_wb_bus_r <= mem_to_wb_bus;
+            wb_ex_lohi_bus_r<=mem_wb_lohi_bus;
         end
     end
-
+    assign wb_ex_lohi_bus= wb_ex_lohi_bus_r;
+    assign wb_id_lohi_bus= wb_ex_lohi_bus_r;
+    
     wire [31:0] wb_pc;
     wire rf_we;
     wire [4:0] rf_waddr;
@@ -46,6 +55,11 @@ module WB(
 
     // assign wb_to_rf_bus = mem_to_wb_bus_r[`WB_TO_RF_WD-1:0];
     assign wb_to_rf_bus = {
+        rf_we,
+        rf_waddr,
+        rf_wdata
+    };
+    assign wb_to_id_bus = {
         rf_we,
         rf_waddr,
         rf_wdata
