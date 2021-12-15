@@ -19,8 +19,9 @@ module EX(
     //div新增
     
     output wire stallreq_for_ex,
-    output wire [64:0] ex_mem_lohi_bus
+    output wire [65:0] ex_hilo
 );
+///////////////////////////////////////////////////////记得去github上搞div和mul的使用
     reg [`ID_TO_EX_WD-1:0] id_to_ex_bus_r;
 
     always @ (posedge clk) begin
@@ -52,8 +53,7 @@ module EX(
     reg is_in_delayslot;//延迟槽
 
     assign {
-        hi_data,
-        lo_data,
+        hilo_data,
         ex_pc,          // 148:117
         inst,           // 116:85
         alu_op,         // 84:83
@@ -88,24 +88,66 @@ module EX(
         .alu_src2    (alu_src2    ),
         .alu_result  (alu_result  )
     );
-   wire inst_is_move,inst_is_mflo,inst_div,inst_divu;
-   assign inst_is_lw=(inst[31:26]==6'b10_0011);
-   assign inst_is_move=inst_is_mflo;
+   wire inst_is_move,inst_is_mflo,inst_is_mfhi,inst_div,inst_divu,
+        inst_mult,inst_multu,inst_mthi,inst_mtlo,inst_lw,inst_lb,
+        inst_sw,inst_lbu,inst_lh,inst_lhu,inst_sb,inst_sh;
+   //inst_is_lw代表的是load这个类
+   
+   assign inst_lw = (inst[31:26]==6'b10_0011);
+   assign inst_sw = (inst[31:26]==6'b10_1011);
+   assign inst_lb = (inst[31:26]==6'b10_0000);
+   assign inst_lbu = (inst[31:26]==6'b10_0100);
+   assign inst_lh = (inst[31:26]==6'b10_0001);
+   assign inst_lhu = (inst[31:26]==6'b10_0101);
+   assign inst_sb = (inst[31:26]==6'b10_1000);
+   assign inst_sh = (inst[31:26]==6'b10_1001);
+   
+   assign inst_is_lw=inst_lw|inst_lb|inst_lbu|inst_lh|inst_lhu;
+   assign inst_is_move=inst_is_mflo|inst_is_mfhi|inst_mthi|inst_mtlo;
    assign inst_is_mflo= (inst[31:26]==6'b00_0000 & inst[5:0]==6'b01_0010);
+   assign inst_is_mfhi= (inst[31:26]==6'b00_0000 & inst[5:0]==6'b01_0000);
    assign inst_div = (inst[31:26]==6'b00_0000 &  inst[5:0]==6'b011010);
+   assign inst_divu = (inst[31:26]==6'b00_0000 &  inst[5:0]==6'b011011);
+   assign inst_mult =  (inst[31:26]==6'b00_0000 &  inst[5:0]==6'b011000);
+   assign inst_multu =  (inst[31:26]==6'b00_0000 &  inst[5:0]==6'b011001);
+   assign inst_mthi =  (inst[31:26]==6'b00_0000 &  inst[5:0]==6'b010001);
+   assign inst_mtlo =  (inst[31:26]==6'b00_0000 &  inst[5:0]==6'b010011);
    
    
    
-   assign move_result=lo_rdata;
+   assign move_result=inst_is_move?rf_rdata1:32'b0;
    assign ex_result = inst_is_move?move_result:alu_result;
    assign data_sram_en=data_ram_en;
-   assign data_sram_wen=data_ram_wen ? 4'b1111:4'b0000;
+   //load指令全用0000，
+   assign data_sram_wen=(data_ram_wen && inst_sw) ? 4'b1111:
+                         (data_ram_wen && inst_sb && ex_result[1:0] == 2'b00) ? 4'b0001:
+                         (data_ram_wen && inst_sb && ex_result[1:0] == 2'b01) ? 4'b0010:
+                         (data_ram_wen && inst_sb && ex_result[1:0] == 2'b10) ? 4'b0100:
+                         (data_ram_wen && inst_sb && ex_result[1:0] == 2'b11) ? 4'b1000:
+                         (data_ram_wen && inst_sh && ex_result[1:0] == 2'b00) ? 4'b0011:
+                         (data_ram_wen && inst_sh && ex_result[1:0] == 2'b10) ? 4'b1100:
+                                              4'b0000;
    assign data_sram_addr=ex_result;
-   assign data_sram_wdata=rf_rdata2;
+   assign data_sram_wdata=(data_sram_wen==4'b1111) ? rf_rdata2: 
+                           (data_sram_wen==4'b0001) ? {24'b0,rf_rdata2[7:0]}:
+                           (data_sram_wen==4'b0010) ? {16'b0,rf_rdata2[7:0],8'b0}:
+                           (data_sram_wen==4'b0100) ? {8'b0,rf_rdata2[7:0],16'b0}:
+                           (data_sram_wen==4'b1000) ? {rf_rdata2[7:0],24'b0}:
+                           (data_sram_wen==4'b0011) ? {16'b0,rf_rdata2[15:0]}:
+                           (data_sram_wen==4'b1100) ? {rf_rdata2[15:0],16'b0}:
+                           32'b0;
    
+   wire [2:0] signal_load;
+   assign signal_load = inst_lw  ? 3'b001: 
+                       inst_lb    ? 3'b010:
+                       inst_lbu   ? 3'b011:
+                       inst_lh    ? 3'b100:
+                       inst_lhu   ? 3'b101:
+                                  3'b000; 
+             
    
-   
-    assign ex_to_mem_bus = {//-3
+    assign ex_to_mem_bus = {//-3+3
+        signal_load,
         ex_pc,          // 75:44
         data_ram_en,    // 43
         data_ram_wen,   // 42:39
@@ -123,15 +165,19 @@ module EX(
      // MUL part
     wire [63:0] mul_result;
     wire mul_signed; // 有符号乘法标记
-
-    //mul u_mul(
-    //	.clk        (clk            ),
-    //    .resetn     (~rst           ),
-    //    .mul_signed (mul_signed     ),
-    //    .ina        (      ), // 乘法源操作数1
-    //    .inb        (      ), // 乘法源操作数2
-    //    .result     (mul_result     ) // 乘法结果 64bit
-    //);
+    assign mul_signed=inst_mult;
+    wire [31:0] mul_data1;
+    wire [31:0] mul_data2;
+    assign mul_data1 =(inst_mult|inst_multu)?rf_rdata1:32'b0;
+    assign mul_data2 =(inst_mult|inst_multu)?rf_rdata2:32'b0;
+    mul u_mul(
+    	.clk        (clk            ),
+        .resetn     (~rst           ),
+        .mul_signed (mul_signed     ),
+        .ina        (mul_data1    ), // 乘法源操作数1
+        .inb        (mul_data2   ), // 乘法源操作数2
+        .result     (mul_result     ) // 乘法结果 64bit
+    );
 
     // DIV part
     wire [63:0] div_result;//高32位是余数，低32位是商
@@ -222,12 +268,25 @@ module EX(
             endcase
         end
     end
-   wire whilo_e;
+   wire hi_we;
+   wire lo_we;
    wire [31:0] hi_rdata;
    wire [31:0] lo_rdata;
-   assign {whilo_e,hi_rdata,lo_rdata}=(inst_div|inst_divu) ? { 1'b1,div_result[63:32] ,div_result[31:0] }:
-                                        {1'b0,hi_data,lo_data};
-   assign ex_mem_lohi_bus={whilo_e ,hi_rdata,lo_rdata};
+    assign hi_we =inst_div|inst_divu|inst_mult|inst_multu|inst_mthi;
+    assign lo_we =inst_div|inst_divu|inst_mult|inst_multu|inst_mtlo;
+    assign hi_rdata =(inst_div|inst_divu)?div_result[63:32]:
+                      (inst_mult|inst_multu)?mul_result[63:32]:
+                      inst_mthi?move_result:32'b0;
+    assign lo_rdata =(inst_div|inst_divu)?div_result[31:0]:
+                      (inst_mult|inst_multu)?mul_result[31:0]:
+                      inst_mtlo?move_result:32'b0;
+    assign ex_hilo ={
+        hi_we,
+        lo_we,
+        hi_rdata,
+        lo_rdata
+        };   
+
     // mul_result 和 div_result 可以直接使用
     
 endmodule
