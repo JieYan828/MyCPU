@@ -35,11 +35,7 @@ module mycpu_core(
     wire stall_id;
     wire inst_is_lw;
     wire stallreq_for_ex;
-    wire [64:0] ex_mem_lohi_bus;
-    wire [64:0] mem_wb_lohi_bus;
-    wire [64:0] mem_ex_lohi_bus;
-    wire [64:0] wb_ex_lohi_bus;
-    wire [64:0] wb_id_lohi_bus;
+    wire [65:0]ex_hilo;
 
     IF u_IF(
     	.clk             (clk             ),
@@ -68,9 +64,7 @@ module mycpu_core(
         .wb_to_id_bus    (wb_to_id_bus    ),
         .br_bus          (br_bus          ),
         .inst_is_lw      (inst_is_lw      ),
-        .wb_id_lohi_bus  (wb_id_lohi_bus  ),
-        .mem_ex_lohi_bus (mem_ex_lohi_bus ),
-        .wb_ex_lohi_bus  (wb_ex_lohi_bus  )
+        .ex_hilo         (ex_hilo         )
     );
 
     EX u_EX(
@@ -78,7 +72,6 @@ module mycpu_core(
         .rst             (rst             ),
         .stall           (stall           ),
         .stallreq_for_ex (stallreq_for_ex ),
-        .ex_mem_lohi_bus (ex_mem_lohi_bus ),
         .id_to_ex_bus    (id_to_ex_bus    ),
         .ex_to_mem_bus   (ex_to_mem_bus   ),
         .ex_to_id_bus    (ex_to_id_bus    ),
@@ -86,7 +79,8 @@ module mycpu_core(
         .data_sram_wen   (data_sram_wen   ),
         .data_sram_addr  (data_sram_addr  ),
         .data_sram_wdata (data_sram_wdata ),
-        .inst_is_lw      (inst_is_lw      )
+        .inst_is_lw      (inst_is_lw      ),//访存信号
+        .ex_hilo         (ex_hilo         )
     );
 
     MEM u_MEM(
@@ -96,10 +90,7 @@ module mycpu_core(
         .ex_to_mem_bus   (ex_to_mem_bus   ),
         .mem_to_id_bus   (mem_to_id_bus   ),
         .data_sram_rdata (data_sram_rdata ),
-        .mem_to_wb_bus   (mem_to_wb_bus   ),
-        .ex_mem_lohi_bus (ex_mem_lohi_bus ),
-        .mem_wb_lohi_bus (mem_wb_lohi_bus ),
-        .mem_ex_lohi_bus (mem_ex_lohi_bus )
+        .mem_to_wb_bus   (mem_to_wb_bus   )
     );
     
     WB u_WB(
@@ -112,10 +103,7 @@ module mycpu_core(
         .debug_wb_pc       (debug_wb_pc       ),
         .debug_wb_rf_wen   (debug_wb_rf_wen   ),
         .debug_wb_rf_wnum  (debug_wb_rf_wnum  ),
-        .debug_wb_rf_wdata (debug_wb_rf_wdata ),
-        .mem_wb_lohi_bus   (mem_wb_lohi_bus   ),
-        .wb_ex_lohi_bus    (wb_ex_lohi_bus    ),
-        .wb_id_lohi_bus    (wb_id_lohi_bus    )
+        .debug_wb_rf_wdata (debug_wb_rf_wdata )
     );
 
     CTRL u_CTRL(
