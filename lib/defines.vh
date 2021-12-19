@@ -1,8 +1,8 @@
-`define IF_TO_ID_WD 33 //IF到ID的位宽
-`define ID_TO_EX_WD 159 //ID段到EX段
-`define EX_TO_MEM_WD 76 //EX到MEM段
-`define MEM_TO_WB_WD 271 //MEM到WB段
-`define BR_WD 33 
+`define IF_TO_ID_WD 33   //线宽
+`define ID_TO_EX_WD 188//156+32+32
+`define EX_TO_MEM_WD 76
+`define MEM_TO_WB_WD 271
+`define BR_WD 33
 `define DATA_SRAM_WD 69
 `define WB_TO_RF_WD 38
 

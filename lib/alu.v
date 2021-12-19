@@ -65,7 +65,7 @@ module alu(
     assign srl_result = alu_src2 >> alu_src1[4:0];
     assign sra_result = ($signed(alu_src2)) >>> alu_src1[4:0];
 
-    assign alu_result = ({32{op_add|op_sub  }} & add_sub_result)
+    assign alu_result = ({32{op_add|op_sub }} & add_sub_result)
                       | ({32{op_slt         }} & slt_result)
                       | ({32{op_sltu        }} & sltu_result)
                       | ({32{op_and         }} & and_result)

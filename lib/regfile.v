@@ -14,12 +14,11 @@ module regfile(
     // write
     always @ (posedge clk) begin
         if (we && waddr!=5'b0) begin
-            reg_array[waddr] <= wdata; //写使能信号为高且要写入的寄存器编号不为0
+            reg_array[waddr] <= wdata;
         end
     end
-
     // read out 1
-    assign rdata1 = (raddr1 == 5'b0) ? 32'b0 : reg_array[raddr1];
+    assign rdata1 =(raddr1 == 5'b0) ? 32'b0 : reg_array[raddr1];
 
     // read out2
     assign rdata2 = (raddr2 == 5'b0) ? 32'b0 : reg_array[raddr2];

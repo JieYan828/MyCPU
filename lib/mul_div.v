@@ -2,7 +2,7 @@ module mul_div(
 	input wire rst,							//复位信号
 	input wire clk,							//时钟信号
 	input wire sel_mul_div,                //选择是乘法还是除法,新增
-	input wire signed_div_i,				//是否是有符号操作数
+	input wire signed_i,				//是否是有符号操作数
 	input wire[31:0] opdata1_i,				//操作数1
 	input wire[31:0] opdata2_i,				//操作数2
 	input wire start_i,						//开始信号
@@ -37,10 +37,8 @@ always @ (posedge clk) begin
             //temp_op_num <= op_num + 6'd1;
             //op_num <= temp_op_num;
             op_num <= op_num + 6'd1;
-            if(signed_div_i) begin //1为有符号数
-            //求操作数的绝对值
-//                abs_a <= (opdata1_i[31]) ? {~opdata1_i+1} : opdata1_i;
-//                abs_b <= (opdata2_i[31]) ? {~opdata2_i+1} : opdata2_i;
+            if(signed_i) begin //1为有符号数
+            //求操作数的补码
                 if(sel_mul_div==1'b1) begin //乘除法时temp_b的值不一样，需要区分一下
                     temp_b[63:32] <= 32'b0;
                     temp_b[31:0] <= (opdata2_i[31]) ? {~opdata2_i+32'd1} : opdata2_i;
@@ -68,8 +66,6 @@ always @ (posedge clk) begin
                 temp_a[31:0] <= opdata1_i;
                 sign <= 2'b0;
             end
-            store_a <= opdata1_i;
-            store_b <= opdata2_i;
             temp_result <= 64'b0;
             end
             else if(op_num!=0 && op_num<6'd33) begin //还没有算完
@@ -85,10 +81,6 @@ always @ (posedge clk) begin
                                         temp_result = {temp_result + temp_a};
                                     end
                                     //移位
-//                                    temp_temp_a <= {temp_a<<1'd1}; //a左移
-//                                    temp_a <= temp_temp_a;
-//                                    temp_temp_b <= {temp_b>>1'd1}; //b右移位
-//                                    temp_b <= temp_temp_b;
                                     temp_a = {temp_a<<1'd1};
                                     temp_b = {temp_b>>1'd1};
                                 end
