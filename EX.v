@@ -71,12 +71,15 @@ module EX(
     assign imm_sign_extend = {{16{inst[15]}},inst[15:0]};
     assign imm_zero_extend = {16'b0, inst[15:0]};
     assign sa_zero_extend = {27'b0,inst[10:6]};
-
+    wire inst_lsa;
+assign inst_lsa =(inst[31:26]==6'b01_1100)&&(inst[5:0]==6'b11_0111);
     wire [31:0] alu_src1, alu_src2;
     wire [31:0] alu_result, ex_result,move_result;
-
+    wire [31:0] rf_rdata1_new;
+    assign rf_rdata1_new=(rf_rdata1<<(inst[7:6]+1'b1));
     assign alu_src1 = sel_alu_src1[1] ? ex_pc :
-                      sel_alu_src1[2] ? sa_zero_extend : rf_rdata1;
+                      sel_alu_src1[2] ? sa_zero_extend : 
+                      inst_lsa?rf_rdata1_new:rf_rdata1;
 
     assign alu_src2 = sel_alu_src2[1] ? imm_sign_extend :
                       sel_alu_src2[2] ? 32'd8 :
@@ -90,7 +93,7 @@ module EX(
     );
    wire inst_is_move,inst_is_mflo,inst_is_mfhi,inst_div,inst_divu,
         inst_mult,inst_multu,inst_mthi,inst_mtlo,inst_lw,inst_lb,
-        inst_sw,inst_lbu,inst_lh,inst_lhu,inst_sb,inst_sh;
+        inst_sw,inst_lbu,inst_lh,inst_lhu,inst_sb,inst_sh,inst_ori;
    //inst_is_lw代表的是load这个类
    
    assign inst_lw = (inst[31:26]==6'b10_0011);
@@ -101,6 +104,9 @@ module EX(
    assign inst_lhu = (inst[31:26]==6'b10_0101);
    assign inst_sb = (inst[31:26]==6'b10_1000);
    assign inst_sh = (inst[31:26]==6'b10_1001);
+   assign inst_ori =(inst[31:26]==6'b00_1101);
+   
+   
    
    assign inst_is_lw=inst_lw|inst_lb|inst_lbu|inst_lh|inst_lhu;
    assign inst_is_move=inst_is_mflo|inst_is_mfhi|inst_mthi|inst_mtlo;
